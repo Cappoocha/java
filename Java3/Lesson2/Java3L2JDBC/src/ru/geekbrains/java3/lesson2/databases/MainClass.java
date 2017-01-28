@@ -1,7 +1,5 @@
 package ru.geekbrains.java3.lesson2.databases;
 
-import java.sql.*;
-
 public class MainClass {
     private static Connection conn = null;
     private static PreparedStatement ps;
