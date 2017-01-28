@@ -1,0 +1,16 @@
+package ru.geekbrains.java3.lesson2.databases;
+
+/**
+ * Created by FlameXander on 16.11.2016.
+ */
+public class MyTimer {
+    private static long t = 0;
+
+    public static void start() {
+        t = System.currentTimeMillis();
+    }
+
+    public static void stopAndPrint() {
+        System.out.println("time: " + (System.currentTimeMillis() - t));
+    }
+}

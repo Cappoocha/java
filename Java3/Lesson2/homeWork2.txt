@@ -1,0 +1,185 @@
+﻿import java.sql.*;
+import java.util.Scanner;
+
+/**
+ * author Катерина on 27.01.2017.
+ */
+public class MainClass
+{
+	private static Connection connection;
+	private static Statement statement;
+	private static PreparedStatement preparedStatement;
+
+	private static final String GET_COST_BY_PRODUCT_TITLE_COMMAND_NAME = "/цена";
+	private static final String UPDATE_COST_BY_PRODUCT_TITLE_COMMAND_NAME = "/сменитьцену";
+	private static final String GET_PRODUCTS_BY_COST_COMMAND_NAME = "/товарыпоцене";
+
+	public static void main(String[] args)
+	{
+		Scanner in = new Scanner(System.in);
+		connect();
+
+		try {
+			statement = connection.createStatement();
+
+			createProductTable(statement);
+			clearProductTable(statement);
+			fillProductTable();
+
+			System.out.println("Введите команду: ");
+			String command = in.next();
+
+			switch (command) {
+				case GET_COST_BY_PRODUCT_TITLE_COMMAND_NAME:
+					String productTitle = in.next();
+					getCostByProductTitle(productTitle);
+					break;
+				case UPDATE_COST_BY_PRODUCT_TITLE_COMMAND_NAME:
+					productTitle = in.next();
+					Double newCost = in.nextDouble();
+					updateCostByProductTitle(productTitle, newCost);
+					break;
+				case GET_PRODUCTS_BY_COST_COMMAND_NAME:
+					Double costStart = in.nextDouble();
+					Double costEnd = in.nextDouble();
+					displayProductsInCostRange(costStart, costEnd);
+					break;
+				default:
+					System.out.println("Введенная команда не существует");
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		disconnect();
+	}
+
+	private static void connect()
+	{
+		try {
+			Class.forName("org.sqlite.JDBC");
+			connection = DriverManager.getConnection("jdbc:sqlite:Java3Lesson2.db");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static void disconnect()
+	{
+		try {
+			connection.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * Выводит цену товара по его наименованию
+	 *
+	 * @param productTitle
+	 * @throws SQLException
+	 */
+	private static void getCostByProductTitle(String productTitle) throws SQLException
+	{
+		PreparedStatement preparedStatement = connection.prepareStatement("SELECT cost FROM Product WHERE title = ?");
+		preparedStatement.setString(1, productTitle);
+		ResultSet result = preparedStatement.executeQuery();
+		int resultCount = 0;
+
+		while (result.next()) {
+			resultCount ++;
+			System.out.println("Цена товара: " + result.getDouble("cost"));
+		}
+
+		if (resultCount == 0) {
+			System.out.println("Товар с наименованием " + productTitle + " не найден");
+		}
+	}
+
+	/**
+	 * Обновляем цену товара по его наименованию
+	 *
+	 * @param productTitle
+	 * @param newCost
+	 * @throws SQLException
+	 */
+	private static void updateCostByProductTitle(String productTitle, Double newCost) throws SQLException
+	{
+		PreparedStatement preparedStatement = connection.prepareStatement("UPDATE Product SET cost = ? WHERE title = ?");
+		preparedStatement.setDouble(1, newCost);
+		preparedStatement.setString(2, productTitle);
+		preparedStatement.executeUpdate();
+
+		System.out.println("Цена обновлена");
+	}
+
+	/**
+	 * Отображает товары в указанном ценовом диапазоне
+	 *
+	 * @param costStart
+	 * @param costEnd
+	 * @throws SQLException
+	 */
+	private static void displayProductsInCostRange(Double costStart, Double costEnd) throws SQLException
+	{
+		PreparedStatement preparedStatement = connection.prepareStatement("SELECT * FROM Product WHERE cost BETWEEN ? AND ? ORDER BY cost");
+		preparedStatement.setDouble(1, costStart);
+		preparedStatement.setDouble(2, costEnd);
+
+		ResultSet result = preparedStatement.executeQuery();
+		int resultCount = 0;
+
+		while (result.next()) {
+			resultCount ++;
+			System.out.println(result.getInt("prodid") + " " + result.getString("title") + " " + result.getDouble("cost"));
+		}
+
+		if (resultCount == 0) {
+			System.out.println("Товары в указанном ценовом диапазоне не найдены");
+		}
+	}
+
+	/**
+	 * Создает таблицу товаров (если она еще не существует)
+	 *
+	 * @param statement
+	 * @throws SQLException
+	 */
+	private static void createProductTable(Statement statement) throws SQLException
+	{
+		statement.execute("CREATE TABLE IF NOT EXISTS Product (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, prodid INTEGER UNIQUE NOT NULL, title TEXT, cost DOUBLE DEFAULT (0))");
+	}
+
+	/**
+	 * Очищает таблицу товаров, сбрасывает значение автоинкремента
+	 *
+	 * @param statement
+	 * @throws SQLException
+	 */
+	private static void clearProductTable(Statement statement) throws SQLException
+	{
+		statement.execute("DELETE FROM Product");
+		statement.execute("DELETE FROM sqlite_sequence WHERE name='Product';");
+	}
+
+	/**
+	 * Заполняет таблицу с товарами тестовыми данными
+	 * 
+	 * @throws SQLException
+	 */
+	private static void fillProductTable() throws SQLException
+	{
+		preparedStatement = connection.prepareStatement("INSERT INTO Product (prodid, title, cost) VALUES (?, ?, ?)");
+
+		connection.setAutoCommit(false);
+		for (int i = 1; i <= 10000; i++) {
+			preparedStatement.setInt(1, i);
+			preparedStatement.setString(2, "Товар" + i);
+			preparedStatement.setDouble(3, i * 10);
+			preparedStatement.addBatch();
+		}
+
+		preparedStatement.executeBatch();
+		connection.setAutoCommit(true);
+	}
+}
